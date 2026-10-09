@@ -18,6 +18,11 @@ app.use(cors({
 app.use(express.json());
 app.use(sanitizeInput);
 
+// Root Endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'success', message: 'AI Code Review API is running' });
+});
+
 // Health Check
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'success', message: 'Test Express App Running' });
