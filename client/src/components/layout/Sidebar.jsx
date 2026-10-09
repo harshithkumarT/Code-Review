@@ -36,8 +36,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
   };
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-slate-900 border-r border-slate-800/80 w-64 text-slate-200">
-      <div className="p-6 flex items-center justify-between border-b border-slate-800/80">
+    <div className="flex flex-col h-full w-64 transition-colors duration-300 bg-white border-r border-slate-200 text-slate-700 dark:bg-slate-900 dark:border-slate-800/80 dark:text-slate-200">
+      <div className="p-6 flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80">
         <div className="flex items-center space-x-3">
           <div className="p-2.5 bg-gradient-to-tr from-indigo-600 to-cyan-500 rounded-xl text-white shadow-lg shadow-indigo-500/20">
             <Code2 className="w-6 h-6" />
@@ -46,13 +46,13 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
             <h1 className="font-bold text-base bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
               CodeReview AI
             </h1>
-            <p className="text-[11px] text-slate-400">Smart Code Auditor</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">Smart Code Auditor</p>
           </div>
         </div>
         {setMobileOpen && (
           <button
             onClick={() => setMobileOpen(false)}
-            className="md:hidden text-slate-400 hover:text-white p-1"
+            className="md:hidden text-slate-400 hover:text-slate-900 dark:hover:text-white p-1"
           >
             <X className="w-5 h-5" />
           </button>
@@ -71,7 +71,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
                 `flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                   isActive
                     ? 'bg-gradient-to-r from-indigo-600/90 to-indigo-700 text-white shadow-lg shadow-indigo-600/20 border border-indigo-500/30'
-                    : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-800/60'
                 }`
               }
               end={item.path === '/'}
@@ -83,7 +83,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
         })}
       </nav>
 
-      <div className="p-4 border-t border-slate-800/80 bg-slate-950/40">
+      <div className="p-4 border-t border-slate-200 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-950/40">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3 truncate">
             <img
@@ -92,8 +92,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
               className="w-9 h-9 rounded-full border border-indigo-500/40 object-cover"
             />
             <div className="truncate">
-              <p className="text-xs font-semibold text-slate-200 truncate">{user?.name}</p>
-              <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
+              <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">{user?.name}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
             </div>
           </div>
           <button
@@ -117,7 +117,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
           <div
-            className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/50 dark:bg-slate-950/80 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
           <div className="relative z-10">{sidebarContent}</div>

@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -31,6 +32,7 @@ const PageLoader = () => (
 
 export default function App() {
   return (
+    <ThemeProvider>
     <ToastProvider>
       <AuthProvider>
         <Router>
@@ -62,5 +64,6 @@ export default function App() {
         </Router>
       </AuthProvider>
     </ToastProvider>
+    </ThemeProvider>
   );
 }

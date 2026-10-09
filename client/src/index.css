@@ -1,7 +1,15 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   body {
     @apply bg-slate-950 text-slate-100 font-sans antialiased min-h-screen;
+    @apply transition-colors duration-300;
+  }
+
+  /* Light mode overrides */
+  :root:not(.dark) body {
+    @apply bg-slate-50 text-slate-900;
   }
 }

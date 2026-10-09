@@ -5,24 +5,24 @@ export default function Navbar({ setMobileOpen }) {
   const { user } = useAuth();
 
   return (
-    <header className="sticky top-0 z-20 bg-slate-900/80 backdrop-blur border-b border-slate-800/80 px-6 py-3.5 flex items-center justify-between">
+    <header className="sticky top-0 z-20 backdrop-blur px-6 py-3.5 flex items-center justify-between transition-colors duration-300 bg-white/80 border-b border-slate-200 dark:bg-slate-900/80 dark:border-slate-800/80">
       <div className="flex items-center space-x-3">
         <button
           onClick={() => setMobileOpen(true)}
-          className="md:hidden p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800/60"
+          className="md:hidden p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/60"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="hidden sm:flex items-center space-x-2 text-xs text-slate-400 bg-slate-950 px-3 py-1.5 rounded-full border border-slate-800">
-          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-          <span>AI Model: <strong className="text-slate-200">Gemini 1.5 Pro</strong></span>
+        <div className="hidden sm:flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-950 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-800">
+          <Sparkles className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+          <span>AI Model: <strong className="text-slate-700 dark:text-slate-200">Gemini 1.5 Pro</strong></span>
         </div>
       </div>
 
       <div className="flex items-center space-x-4">
         <button
-          className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800/60 relative"
+          className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 relative"
           title="Notifications"
         >
           <Bell className="w-5 h-5" />
@@ -30,8 +30,8 @@ export default function Navbar({ setMobileOpen }) {
           <span className="absolute top-2 right-2 w-2 h-2 bg-indigo-500 rounded-full" />
         </button>
 
-        <div className="flex items-center space-x-3 border-l border-slate-800 pl-4">
-          <span className="text-xs font-semibold text-slate-300 hidden sm:inline-block">
+        <div className="flex items-center space-x-3 border-l border-slate-200 dark:border-slate-800 pl-4">
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 hidden sm:inline-block">
             {user?.name}
           </span>
           <img
