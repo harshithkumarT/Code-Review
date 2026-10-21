@@ -28,7 +28,7 @@ export const updateProfile = async (req, res, next) => {
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
       { name, email: email.toLowerCase() },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).select('-password');
 
     return res
@@ -63,7 +63,7 @@ export const updateAvatar = async (req, res, next) => {
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
       { profileImage: imageUrl },
-      { new: true }
+      { returnDocument: 'after' }
     ).select('-password');
 
     return res
