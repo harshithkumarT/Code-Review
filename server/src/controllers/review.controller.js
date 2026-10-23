@@ -4,7 +4,6 @@ import { Favorite } from '../models/favorite.model.js';
 import { generateCodeReview } from '../services/ai.service.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { ApiError } from '../utils/apiError.js';
-import mongoose from 'mongoose';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -50,7 +49,7 @@ export const createCodeReview = async (req, res, next) => {
     });
 
     const review = await CodeReview.create({
-      user: req.user._id,
+      user: req.user.id,
       title,
       language,
       originalCode: codeSnippet,
@@ -64,8 +63,8 @@ export const createCodeReview = async (req, res, next) => {
     });
 
     await ReviewHistory.create({
-      user: req.user._id,
-      review: review._id,
+      user: req.user.id,
+      review: review.id,
       action: 'created',
     });
 
@@ -109,9 +108,9 @@ export const createCodeReviewFromFile = async (req, res, next) => {
       checkCleanCode: req.body.checkCleanCode !== 'false',
     });
 
-    // Save in MongoDB
+    // Save in PostgreSQL
     const review = await CodeReview.create({
-      user: req.user._id,
+      user: req.user.id,
       title: reviewTitle,
       language: detectedLanguage,
       originalCode: codeContent,
@@ -125,8 +124,8 @@ export const createCodeReviewFromFile = async (req, res, next) => {
     });
 
     await ReviewHistory.create({
-      user: req.user._id,
-      review: review._id,
+      user: req.user.id,
+      review: review.id,
       action: 'created',
     });
 
@@ -154,7 +153,7 @@ export const createCodeReviewFromFile = async (req, res, next) => {
  */
 export const getReviewAnalytics = async (req, res, next) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
 
     const totalReviews = await CodeReview.countDocuments({ user: userId });
 
@@ -179,30 +178,14 @@ export const getReviewAnalytics = async (req, res, next) => {
       );
     }
 
-    const statsAgg = await CodeReview.aggregate([
-      { $match: { user: new mongoose.Types.ObjectId(userId) } },
-      {
-        $group: {
-          _id: null,
-          avgScore: { $avg: '$score' },
-          maxScore: { $max: '$score' },
-          minScore: { $min: '$score' },
-        },
-      },
-    ]);
+    const stats = await CodeReview.getStatsForUser(userId);
+    const averageScore = Math.round(parseFloat(stats.avgScore) || 0);
+    const bestScore = parseInt(stats.maxScore, 10) || 0;
+    const worstScore = parseInt(stats.minScore, 10) || 0;
 
-    const averageScore = Math.round(statsAgg[0]?.avgScore || 0);
-    const bestScore = statsAgg[0]?.maxScore || 0;
-    const worstScore = statsAgg[0]?.minScore || 0;
-
-    const langAgg = await CodeReview.aggregate([
-      { $match: { user: new mongoose.Types.ObjectId(userId) } },
-      { $group: { _id: '$language', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ]);
-
-    const mostUsedLanguage = langAgg[0]?._id || 'N/A';
-    const languageDistribution = langAgg.map((l) => ({ language: l._id, count: l.count }));
+    const langDist = await CodeReview.getLanguageDistribution(userId);
+    const mostUsedLanguage = langDist[0]?.language || 'N/A';
+    const languageDistribution = langDist.map((l) => ({ language: l.language, count: parseInt(l.count, 10) }));
 
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -227,24 +210,7 @@ export const getReviewAnalytics = async (req, res, next) => {
       { range: '<70', count: await CodeReview.countDocuments({ user: userId, score: { $lt: 70 } }) },
     ];
 
-    const timelineAgg = await CodeReview.aggregate([
-      { $match: { user: new mongoose.Types.ObjectId(userId) } },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          count: { $sum: 1 },
-          avgScore: { $avg: '$score' },
-        },
-      },
-      { $sort: { _id: 1 } },
-      { $limit: 10 },
-    ]);
-
-    const timelineData = timelineAgg.map((t) => ({
-      date: t._id,
-      count: t.count,
-      avgScore: Math.round(t.avgScore),
-    }));
+    const timelineData = await CodeReview.getTimelineData(userId);
 
     return res.status(200).json(
       new ApiResponse(
@@ -275,12 +241,12 @@ export const getReviewAnalytics = async (req, res, next) => {
  */
 export const getReviewById = async (req, res, next) => {
   try {
-    const review = await CodeReview.findOne({ _id: req.params.id, user: req.user._id });
+    const review = await CodeReview.findOne({ _id: req.params.id, user: req.user.id });
     if (!review) {
       return next(new ApiError(404, 'Code review not found.'));
     }
 
-    const fav = await Favorite.findOne({ user: req.user._id, review: review._id });
+    const fav = await Favorite.findOne({ user: req.user.id, review: review.id });
     const reviewObj = review.toObject();
     reviewObj.isFavorite = !!fav;
 
@@ -316,54 +282,28 @@ export const getUserReviews = async (req, res, next) => {
     const limitNum = parseInt(limit, 10) || 6;
     const skip = (pageNum - 1) * limitNum;
 
-    const query = { user: req.user._id };
-
-    if (keywords && keywords.trim()) {
-      query.$text = { $search: keywords.trim() };
-    }
-
     const searchString = title || search;
-    if (searchString && searchString.trim() && !query.$text) {
-      query.$or = [
-        { title: { $regex: searchString.trim(), $options: 'i' } },
-        { language: { $regex: searchString.trim(), $options: 'i' } },
-      ];
-    }
 
-    if (language && language !== 'All') {
-      query.language = language;
-    }
+    const { reviews, totalCount } = await CodeReview.findWithFilters({
+      userId: req.user.id,
+      keywords,
+      search: searchString,
+      language,
+      minScore,
+      maxScore,
+      startDate,
+      endDate,
+      sort,
+      skip,
+      limit: limitNum,
+    });
 
-    if (minScore !== undefined || maxScore !== undefined) {
-      query.score = {};
-      if (minScore !== undefined && minScore !== '') query.score.$gte = Number(minScore);
-      if (maxScore !== undefined && maxScore !== '') query.score.$lte = Number(maxScore);
-    }
-
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        query.createdAt.$lte = end;
-      }
-    }
-
-    let sortOptions = { createdAt: -1 };
-    if (sort === 'oldest') sortOptions = { createdAt: 1 };
-    if (sort === 'score_desc') sortOptions = { score: -1, createdAt: -1 };
-    if (sort === 'score_asc') sortOptions = { score: 1, createdAt: -1 };
-
-    const totalCount = await CodeReview.countDocuments(query);
-    const reviews = await CodeReview.find(query).sort(sortOptions).skip(skip).limit(limitNum);
-
-    const userFavs = await Favorite.find({ user: req.user._id }).select('review');
+    const userFavs = await Favorite.findByUser(req.user.id);
     const favSet = new Set(userFavs.map((f) => f.review.toString()));
 
     const formattedReviews = reviews.map((r) => {
       const obj = r.toObject();
-      obj.isFavorite = favSet.has(r._id.toString());
+      obj.isFavorite = favSet.has(r.id.toString());
       return obj;
     });
 
@@ -395,14 +335,14 @@ export const getUserReviews = async (req, res, next) => {
  */
 export const deleteReview = async (req, res, next) => {
   try {
-    const review = await CodeReview.findOneAndDelete({ _id: req.params.id, user: req.user._id });
+    const review = await CodeReview.findOneAndDelete({ _id: req.params.id, user: req.user.id });
     if (!review) {
       return next(new ApiError(404, 'Code review not found.'));
     }
 
     await Favorite.deleteMany({ review: req.params.id });
     await ReviewHistory.create({
-      user: req.user._id,
+      user: req.user.id,
       review: req.params.id,
       action: 'deleted',
     });

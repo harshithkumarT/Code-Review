@@ -26,10 +26,9 @@ export const updateProfile = async (req, res, next) => {
     }
 
     const updatedUser = await User.findByIdAndUpdate(
-      req.user._id,
-      { name, email: email.toLowerCase() },
-      { returnDocument: 'after', runValidators: true }
-    ).select('-password');
+      req.user.id,
+      { name, email: email.toLowerCase() }
+    );
 
     return res
       .status(200)
@@ -61,10 +60,9 @@ export const updateAvatar = async (req, res, next) => {
     }
 
     const updatedUser = await User.findByIdAndUpdate(
-      req.user._id,
-      { profileImage: imageUrl },
-      { returnDocument: 'after' }
-    ).select('-password');
+      req.user.id,
+      { profileImage: imageUrl }
+    );
 
     return res
       .status(200)
@@ -91,16 +89,15 @@ export const changePassword = async (req, res, next) => {
     }
 
     // Select password explicitly to compare
-    const user = await User.findById(req.user._id).select('+password');
+    const user = await User.findById(req.user.id, { selectPassword: true });
 
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
       return next(new ApiError(401, 'Current password is incorrect.'));
     }
 
-    // Update password (triggers pre-save bcrypt hook)
-    user.password = newPassword;
-    await user.save();
+    // Update password with bcrypt hashing
+    await User.savePassword(req.user.id, newPassword);
 
     return res
       .status(200)
@@ -116,9 +113,11 @@ export const changePassword = async (req, res, next) => {
  */
 export const deleteAccount = async (req, res, next) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
 
     // Purge user's reviews, favorites, and history
+    // Note: With ON DELETE CASCADE in PostgreSQL, deleting the user will cascade.
+    // But we explicitly delete related data first for clarity.
     await CodeReview.deleteMany({ user: userId });
     await Favorite.deleteMany({ user: userId });
     await ReviewHistory.deleteMany({ user: userId });

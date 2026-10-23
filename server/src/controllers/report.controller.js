@@ -10,7 +10,7 @@ import { ApiError } from '../utils/apiError.js';
 export const generatePdfReport = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const review = await CodeReview.findOne({ _id: id, user: req.user._id });
+    const review = await CodeReview.findOne({ _id: id, user: req.user.id });
 
     if (!review) {
       return next(new ApiError(404, 'Code review not found'));
@@ -83,7 +83,7 @@ export const generatePdfReport = async (req, res, next) => {
 export const generateDocxReport = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const review = await CodeReview.findOne({ _id: id, user: req.user._id });
+    const review = await CodeReview.findOne({ _id: id, user: req.user.id });
 
     if (!review) {
       return next(new ApiError(404, 'Code review not found'));

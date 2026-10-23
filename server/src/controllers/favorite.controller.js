@@ -20,15 +20,15 @@ export const toggleFavorite = async (req, res, next) => {
       return next(new ApiError(404, 'Code review not found'));
     }
 
-    const existingFav = await Favorite.findOne({ user: req.user._id, review: reviewId });
+    const existingFav = await Favorite.findOne({ user: req.user.id, review: reviewId });
 
     if (existingFav) {
-      await Favorite.findByIdAndDelete(existingFav._id);
+      await Favorite.findByIdAndDelete(existingFav.id);
       return res
         .status(200)
         .json(new ApiResponse(200, { isFavorite: false }, 'Removed from favorites'));
     } else {
-      await Favorite.create({ user: req.user._id, review: reviewId });
+      await Favorite.create({ user: req.user.id, review: reviewId });
       return res
         .status(201)
         .json(new ApiResponse(201, { isFavorite: true }, 'Added to favorites'));
@@ -47,7 +47,7 @@ export const removeFavorite = async (req, res, next) => {
     const { reviewId } = req.params;
 
     const favorite = await Favorite.findOneAndDelete({
-      user: req.user._id,
+      user: req.user.id,
       review: reviewId,
     });
 
@@ -69,11 +69,7 @@ export const removeFavorite = async (req, res, next) => {
  */
 export const getUserFavorites = async (req, res, next) => {
   try {
-    const favorites = await Favorite.find({ user: req.user._id })
-      .populate('review')
-      .sort({ createdAt: -1 });
-
-    const reviewList = favorites.map((fav) => fav.review).filter(Boolean);
+    const reviewList = await Favorite.findByUserPopulated(req.user.id);
 
     return res
       .status(200)

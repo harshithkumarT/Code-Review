@@ -26,10 +26,10 @@ export const registerUser = async (req, res, next) => {
       password,
     });
 
-    const token = generateToken(user._id);
+    const token = generateToken(user.id);
 
     const userResponse = {
-      _id: user._id,
+      _id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
@@ -58,7 +58,7 @@ export const loginUser = async (req, res, next) => {
     }
 
     // Select password explicitly since it's hidden by default in user model
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email }, { selectPassword: true });
     if (!user) {
       return next(new ApiError(401, 'Invalid credentials'));
     }
@@ -68,10 +68,10 @@ export const loginUser = async (req, res, next) => {
       return next(new ApiError(401, 'Invalid credentials'));
     }
 
-    const token = generateToken(user._id);
+    const token = generateToken(user.id);
 
     const userResponse = {
-      _id: user._id,
+      _id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
@@ -93,7 +93,7 @@ export const loginUser = async (req, res, next) => {
  */
 export const getCurrentUser = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user.id);
     if (!user) {
       return next(new ApiError(404, 'User not found'));
     }

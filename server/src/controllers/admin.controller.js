@@ -16,10 +16,7 @@ export const getAdminStats = async (req, res, next) => {
     const totalAdmins = await User.countDocuments({ role: 'admin' });
 
     // Calculate platform-wide average score
-    const avgScoreAgg = await CodeReview.aggregate([
-      { $group: { _id: null, avgScore: { $avg: '$score' } } },
-    ]);
-    const avgPlatformScore = Math.round(avgScoreAgg[0]?.avgScore || 0);
+    const avgPlatformScore = await CodeReview.getPlatformAvgScore();
 
     return res.status(200).json(
       new ApiResponse(
@@ -50,20 +47,12 @@ export const getAdminUsers = async (req, res, next) => {
     const limitNum = parseInt(limit, 10) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    const query = {};
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-      ];
-    }
-
-    const totalCount = await User.countDocuments(query);
-    const users = await User.find(query)
-      .select('-password')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum);
+    const { users, totalCount } = await User.findWithPagination({
+      search,
+      skip,
+      limit: limitNum,
+      sort: { createdAt: -1 },
+    });
 
     const totalPages = Math.ceil(totalCount / limitNum) || 1;
 
@@ -95,7 +84,7 @@ export const deleteUserByAdmin = async (req, res, next) => {
   try {
     const { userId } = req.params;
 
-    if (userId.toString() === req.user._id.toString()) {
+    if (userId.toString() === req.user.id.toString()) {
       return next(new ApiError(400, 'Admins cannot delete their own account from the admin dashboard.'));
     }
 
@@ -130,20 +119,11 @@ export const getAdminReviews = async (req, res, next) => {
     const limitNum = parseInt(limit, 10) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    const query = {};
-    if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { language: { $regex: search, $options: 'i' } },
-      ];
-    }
-
-    const totalCount = await CodeReview.countDocuments(query);
-    const reviews = await CodeReview.find(query)
-      .populate('user', 'name email profileImage')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum);
+    const { reviews, totalCount } = await CodeReview.findWithUser({
+      search,
+      skip,
+      limit: limitNum,
+    });
 
     const totalPages = Math.ceil(totalCount / limitNum) || 1;
 
