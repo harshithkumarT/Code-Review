@@ -1,5 +1,9 @@
 import pool from '../config/db.js';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const isUuid = (id) => typeof id === 'string' && UUID_REGEX.test(id);
+
 /**
  * Favorites Model — PostgreSQL query layer
  * Junction / Bookmarks model referencing User and CodeReview
@@ -9,10 +13,14 @@ export const Favorite = {
    * Create a new favorite entry
    */
   async create({ user, review }) {
+    if (!isUuid(user) || !isUuid(review)) {
+      return null;
+    }
+
     const result = await pool.query(
       `INSERT INTO favorites (user_id, review_id)
        VALUES ($1, $2)
-       RETURNING id, user_id AS "user", review_id AS "review", created_at AS "createdAt", updated_at AS "updatedAt"`,
+       RETURNING id, id AS "_id", user_id AS "user", review_id AS "review", created_at AS "createdAt", updated_at AS "updatedAt"`,
       [user, review]
     );
     return result.rows[0];
@@ -22,6 +30,10 @@ export const Favorite = {
    * Find a single favorite by user and review
    */
   async findOne({ user, review }) {
+    if (!isUuid(user) || !isUuid(review)) {
+      return null;
+    }
+
     const result = await pool.query(
       `SELECT id, id AS "_id", user_id AS "user", review_id AS "review", created_at AS "createdAt"
        FROM favorites WHERE user_id = $1 AND review_id = $2 LIMIT 1`,
@@ -34,8 +46,12 @@ export const Favorite = {
    * Delete favorite by its ID
    */
   async findByIdAndDelete(id) {
+    if (!isUuid(id)) {
+      return null;
+    }
+
     const result = await pool.query(
-      `DELETE FROM favorites WHERE id = $1 RETURNING id`,
+      `DELETE FROM favorites WHERE id = $1 RETURNING id, id AS "_id"`,
       [id]
     );
     return result.rows[0] || null;
@@ -45,8 +61,12 @@ export const Favorite = {
    * Delete a favorite matching user + review
    */
   async findOneAndDelete({ user, review }) {
+    if (!isUuid(user) || !isUuid(review)) {
+      return null;
+    }
+
     const result = await pool.query(
-      `DELETE FROM favorites WHERE user_id = $1 AND review_id = $2 RETURNING id`,
+      `DELETE FROM favorites WHERE user_id = $1 AND review_id = $2 RETURNING id, id AS "_id"`,
       [user, review]
     );
     return result.rows[0] || null;
@@ -60,10 +80,12 @@ export const Favorite = {
     const values = [];
 
     if (filter.user) {
+      if (!isUuid(filter.user)) return;
       conditions.push(`user_id = $${values.length + 1}`);
       values.push(filter.user);
     }
     if (filter.review) {
+      if (!isUuid(filter.review)) return;
       conditions.push(`review_id = $${values.length + 1}`);
       values.push(filter.review);
     }
@@ -80,6 +102,10 @@ export const Favorite = {
    * Find all favorites for a user (with populated review data)
    */
   async findByUserPopulated(userId) {
+    if (!isUuid(userId)) {
+      return [];
+    }
+
     const result = await pool.query(
       `SELECT f.id, f.user_id AS "user", f.review_id,
               cr.id AS "review_id", cr.user_id AS "review_user", cr.language, cr.title,
@@ -119,6 +145,10 @@ export const Favorite = {
    * Find all favorites for a user (just review IDs for checking favorite status)
    */
   async findByUser(userId) {
+    if (!isUuid(userId)) {
+      return [];
+    }
+
     const result = await pool.query(
       `SELECT review_id AS "review" FROM favorites WHERE user_id = $1`,
       [userId]

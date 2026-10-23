@@ -17,8 +17,13 @@ export const authenticateUser = async (req, res, next) => {
       // Verify JWT signature using secret key
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key');
 
+      const userId = decoded.id || decoded._id;
+      if (!userId) {
+        return next(new ApiError(401, 'User not found or token is invalid'));
+      }
+
       // Fetch user from DB excluding password field and attach to request object
-      req.user = await User.findById(decoded.id);
+      req.user = await User.findById(userId);
 
       if (!req.user) {
         return next(new ApiError(401, 'User not found or token is invalid'));

@@ -1,5 +1,9 @@
 import pool from '../config/db.js';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const isUuid = (id) => typeof id === 'string' && UUID_REGEX.test(id);
+
 /**
  * Code Review Model — PostgreSQL query layer replacing Mongoose CodeReview model
  */
@@ -11,7 +15,7 @@ export const CodeReview = {
     const result = await pool.query(
       `INSERT INTO code_reviews (user_id, language, title, original_code, reviewed_code, ai_feedback, score, bugs, optimizations, security_issues, complexity)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-       RETURNING id, user_id AS "user", language, title, original_code AS "originalCode", reviewed_code AS "reviewedCode",
+       RETURNING id, id AS "_id", user_id AS "user", language, title, original_code AS "originalCode", reviewed_code AS "reviewedCode",
                  ai_feedback AS "aiFeedback", score, bugs, optimizations, security_issues AS "securityIssues",
                  complexity, created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
@@ -28,7 +32,11 @@ export const CodeReview = {
         JSON.stringify(data.complexity || { timeComplexity: 'N/A', spaceComplexity: 'N/A' }),
       ]
     );
-    return result.rows[0];
+    const row = result.rows[0];
+    if (row) {
+      row.toObject = () => ({ ...row });
+    }
+    return row;
   },
 
   /**
@@ -38,14 +46,19 @@ export const CodeReview = {
     const conditions = [];
     const values = [];
 
-    if (filter._id || filter.id) {
+    const reviewId = filter._id || filter.id;
+    if (reviewId) {
+      if (!isUuid(reviewId)) return null;
       conditions.push(`id = $${values.length + 1}`);
-      values.push(filter._id || filter.id);
+      values.push(reviewId);
     }
     if (filter.user) {
+      if (!isUuid(filter.user)) return null;
       conditions.push(`user_id = $${values.length + 1}`);
       values.push(filter.user);
     }
+
+    if (conditions.length === 0) return null;
 
     const result = await pool.query(
       `SELECT id, id AS "_id", user_id AS "user", language, title, original_code AS "originalCode",
@@ -78,6 +91,7 @@ export const CodeReview = {
     const conditions = [];
 
     if (filter.user) {
+      if (!isUuid(filter.user)) return 0;
       conditions.push(`user_id = $${values.length + 1}`);
       values.push(filter.user);
     }
@@ -105,6 +119,9 @@ export const CodeReview = {
           conditions.push(`score <= $${values.length + 1}`);
           values.push(filter.score.$lte);
         }
+      } else {
+        conditions.push(`score = $${values.length + 1}`);
+        values.push(filter.score);
       }
     }
 
@@ -123,18 +140,23 @@ export const CodeReview = {
     const conditions = [];
     const values = [];
 
-    if (filter._id || filter.id) {
+    const reviewId = filter._id || filter.id;
+    if (reviewId) {
+      if (!isUuid(reviewId)) return null;
       conditions.push(`id = $${values.length + 1}`);
-      values.push(filter._id || filter.id);
+      values.push(reviewId);
     }
     if (filter.user) {
+      if (!isUuid(filter.user)) return null;
       conditions.push(`user_id = $${values.length + 1}`);
       values.push(filter.user);
     }
 
+    if (conditions.length === 0) return null;
+
     const result = await pool.query(
       `DELETE FROM code_reviews WHERE ${conditions.join(' AND ')}
-       RETURNING id, user_id AS "user", title, language`,
+       RETURNING id, id AS "_id", user_id AS "user", title, language`,
       values
     );
     return result.rows[0] || null;
@@ -148,6 +170,7 @@ export const CodeReview = {
     const values = [];
 
     if (filter.user) {
+      if (!isUuid(filter.user)) return;
       conditions.push(`user_id = $${values.length + 1}`);
       values.push(filter.user);
     }
@@ -164,6 +187,10 @@ export const CodeReview = {
    * Advanced search with filters, full-text search, sorting, and pagination
    */
   async findWithFilters({ userId, keywords, search, language, minScore, maxScore, startDate, endDate, sort, skip, limit }) {
+    if (!isUuid(userId)) {
+      return { reviews: [], totalCount: 0 };
+    }
+
     const conditions = ['user_id = $1'];
     const values = [userId];
 
@@ -243,6 +270,10 @@ export const CodeReview = {
    * Aggregate: Get stats (avg, max, min score) for a user
    */
   async getStatsForUser(userId) {
+    if (!isUuid(userId)) {
+      return { avgScore: 0, maxScore: 0, minScore: 0 };
+    }
+
     const result = await pool.query(
       `SELECT COALESCE(AVG(score), 0) AS "avgScore",
               COALESCE(MAX(score), 0) AS "maxScore",
@@ -257,6 +288,10 @@ export const CodeReview = {
    * Aggregate: Get language distribution for a user
    */
   async getLanguageDistribution(userId) {
+    if (!isUuid(userId)) {
+      return [];
+    }
+
     const result = await pool.query(
       `SELECT language, COUNT(*) AS count FROM code_reviews
        WHERE user_id = $1 GROUP BY language ORDER BY count DESC`,
@@ -269,6 +304,10 @@ export const CodeReview = {
    * Aggregate: Get timeline data (daily review counts and avg scores)
    */
   async getTimelineData(userId) {
+    if (!isUuid(userId)) {
+      return [];
+    }
+
     const result = await pool.query(
       `SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS date,
               COUNT(*) AS count,

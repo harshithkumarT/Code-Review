@@ -10,6 +10,6 @@ router.post('/register', authLimiter, registerUser);
 router.post('/login', authLimiter, loginUser);
 
 router.get('/me', authenticateUser, getCurrentUser);
-router.post('/logout', authenticateUser, logoutUser);
+router.post('/logout', logoutUser);
 
 export default router;

@@ -1,6 +1,10 @@
 import pool from '../config/db.js';
 import bcrypt from 'bcryptjs';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const isUuid = (id) => typeof id === 'string' && UUID_REGEX.test(id);
+
 /**
  * User Model — PostgreSQL query layer replacing Mongoose User model
  */
@@ -15,7 +19,7 @@ export const User = {
     const result = await pool.query(
       `INSERT INTO users (name, email, password, role, profile_image)
        VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, name, email, role, profile_image AS "profileImage", created_at AS "createdAt", updated_at AS "updatedAt"`,
+       RETURNING id, id AS "_id", name, email, role, profile_image AS "profileImage", created_at AS "createdAt", updated_at AS "updatedAt"`,
       [name, email.toLowerCase(), hashedPassword, role, profileImage || undefined]
     );
     return result.rows[0];
@@ -26,8 +30,8 @@ export const User = {
    */
   async findOne({ email }, { selectPassword = false } = {}) {
     const columns = selectPassword
-      ? 'id, name, email, password, role, profile_image AS "profileImage", created_at AS "createdAt", updated_at AS "updatedAt"'
-      : 'id, name, email, role, profile_image AS "profileImage", created_at AS "createdAt", updated_at AS "updatedAt"';
+      ? 'id, id AS "_id", name, email, password, role, profile_image AS "profileImage", created_at AS "createdAt", updated_at AS "updatedAt"'
+      : 'id, id AS "_id", name, email, role, profile_image AS "profileImage", created_at AS "createdAt", updated_at AS "updatedAt"';
 
     const result = await pool.query(
       `SELECT ${columns} FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
@@ -46,9 +50,13 @@ export const User = {
    * Find user by ID (excludes password by default)
    */
   async findById(id, { selectPassword = false } = {}) {
+    if (!isUuid(id)) {
+      return null;
+    }
+
     const columns = selectPassword
-      ? 'id, name, email, password, role, profile_image AS "profileImage", created_at AS "createdAt", updated_at AS "updatedAt"'
-      : 'id, name, email, role, profile_image AS "profileImage", created_at AS "createdAt", updated_at AS "updatedAt"';
+      ? 'id, id AS "_id", name, email, password, role, profile_image AS "profileImage", created_at AS "createdAt", updated_at AS "updatedAt"'
+      : 'id, id AS "_id", name, email, role, profile_image AS "profileImage", created_at AS "createdAt", updated_at AS "updatedAt"';
 
     const result = await pool.query(
       `SELECT ${columns} FROM users WHERE id = $1 LIMIT 1`,
@@ -67,6 +75,10 @@ export const User = {
    * Update user fields by ID, returns updated user (without password)
    */
   async findByIdAndUpdate(id, updates) {
+    if (!isUuid(id)) {
+      return null;
+    }
+
     const setClauses = [];
     const values = [];
     let paramIndex = 1;
@@ -91,7 +103,7 @@ export const User = {
 
     const result = await pool.query(
       `UPDATE users SET ${setClauses.join(', ')} WHERE id = $${paramIndex}
-       RETURNING id, name, email, role, profile_image AS "profileImage", created_at AS "createdAt", updated_at AS "updatedAt"`,
+       RETURNING id, id AS "_id", name, email, role, profile_image AS "profileImage", created_at AS "createdAt", updated_at AS "updatedAt"`,
       values
     );
     return result.rows[0] || null;
@@ -101,8 +113,12 @@ export const User = {
    * Delete user by ID
    */
   async findByIdAndDelete(id) {
+    if (!isUuid(id)) {
+      return null;
+    }
+
     const result = await pool.query(
-      `DELETE FROM users WHERE id = $1 RETURNING id`,
+      `DELETE FROM users WHERE id = $1 RETURNING id, id AS "_id"`,
       [id]
     );
     return result.rows[0] || null;
@@ -133,7 +149,7 @@ export const User = {
    * Find users with search, pagination, and sorting
    */
   async findWithPagination({ search, skip, limit, sort = { createdAt: -1 } }) {
-    let query = `SELECT id, name, email, role, profile_image AS "profileImage", created_at AS "createdAt", updated_at AS "updatedAt" FROM users`;
+    let query = `SELECT id, id AS "_id", name, email, role, profile_image AS "profileImage", created_at AS "createdAt", updated_at AS "updatedAt" FROM users`;
     let countQuery = 'SELECT COUNT(*) AS count FROM users';
     const values = [];
     const conditions = [];
@@ -173,6 +189,10 @@ export const User = {
    * Save updated password (with bcrypt hashing)
    */
   async savePassword(id, newPassword) {
+    if (!isUuid(id)) {
+      return;
+    }
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
     await pool.query(

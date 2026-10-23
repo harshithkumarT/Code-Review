@@ -11,7 +11,7 @@ export const cacheMiddleware = (durationInSeconds = 60) => {
     }
 
     // Build unique cache key using user ID + request URL
-    const userId = req.user ? req.user._id.toString() : 'anonymous';
+    const userId = req.user ? (req.user.id || req.user._id || 'anonymous').toString() : 'anonymous';
     const key = `cache:${userId}:${req.originalUrl || req.url}`;
 
     const cachedResponse = cacheStore.get(key);
@@ -43,7 +43,8 @@ export const cacheMiddleware = (durationInSeconds = 60) => {
  */
 export const clearUserCache = (userId) => {
   if (!userId) return;
-  const prefix = `cache:${userId.toString()}`;
+  const idStr = (userId.id || userId._id || userId).toString();
+  const prefix = `cache:${idStr}`;
   for (const key of cacheStore.keys()) {
     if (key.startsWith(prefix)) {
       cacheStore.delete(key);
